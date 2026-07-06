@@ -27,6 +27,35 @@ interface CartItem {
   adicionalesSeleccionados?: Addon[];
 }
 
+function Logo({ className = "w-48 h-auto" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 440 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <g transform="translate(10, 10)">
+        {/* M */}
+        <text x="0" y="110" fill="#225837" fontFamily="'Montserrat', sans-serif" fontWeight="900" fontSize="125" letterSpacing="-2">M</text>
+        {/* C */}
+        <text x="135" y="110" fill="#C29A38" fontFamily="'Montserrat', sans-serif" fontWeight="900" fontSize="125" letterSpacing="-2">C</text>
+        
+        {/* Leaf inside C */}
+        <g transform="translate(192, 42) scale(0.72)">
+          {/* Leaf body */}
+          <path d="M 0 50 C 0 20, 35 15, 65 15 C 65 45, 45 75, 0 50 Z" fill="#225837" />
+          {/* Leaf vein */}
+          <path d="M 0 50 Q 35 37 65 15" stroke="#143521" strokeWidth="2.5" strokeLinecap="round" />
+        </g>
+        
+        {/* T */}
+        <text x="260" y="110" fill="#225837" fontFamily="'Montserrat', sans-serif" fontWeight="900" fontSize="125" letterSpacing="-2">T</text>
+        
+        {/* Subtitle - FOODS - */}
+        <line x1="15" y1="150" x2="85" y2="150" stroke="#C29A38" strokeWidth="3" strokeLinecap="round" />
+        <text x="105" y="162" fill="#C29A38" fontFamily="'Montserrat', sans-serif" fontWeight="500" fontSize="35" letterSpacing="14">FOODS</text>
+        <line x1="335" y1="150" x2="405" y2="150" stroke="#C29A38" strokeWidth="3" strokeLinecap="round" />
+      </g>
+    </svg>
+  );
+}
+
 export default function App() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -289,9 +318,8 @@ export default function App() {
       
       {/* Header */}
       <header className="sticky top-0 bg-[#0F0F10]/95 backdrop-blur-md z-50 px-5 py-4 flex justify-between items-center border-b border-[#2A2A2E]">
-        <div className="flex flex-col items-start">
-          <h1 className="font-title text-[24px] font-black text-primary leading-none tracking-wider">{RESTAURANTE_NAME}</h1>
-          <span className="font-slogan text-[10px] text-secondary font-bold tracking-widest mt-1 uppercase">{RESTAURANTE_SLOGAN}</span>
+        <div className="flex items-center">
+          <Logo className="h-9 w-auto" />
         </div>
         <div className="flex items-center gap-2">
           {FACEBOOK_URL && (
@@ -360,41 +388,10 @@ export default function App() {
 
       {/* 3D realistic logo banner */}
       <div className="px-5 pt-4 pb-3">
-        <div className="relative w-full rounded-3xl overflow-hidden shadow-2xl aspect-[2/1] bg-gradient-to-br from-[#161618] to-[#0A0A0B] flex flex-col items-center justify-center text-center p-6 border border-[#D4AF37]/20">
-          <div className="absolute inset-0 bg-[radial-gradient(#d4af37_1px,transparent_1px)] [background-size:16px_16px] opacity-10"></div>
+        <div className="relative w-full rounded-3xl overflow-hidden shadow-2xl aspect-[2/1] bg-gradient-to-br from-[#161618] to-[#0A0A0B] flex flex-col items-center justify-center text-center p-6 border border-[#C29A38]/20">
+          <div className="absolute inset-0 bg-[radial-gradient(#c29a38_1px,transparent_1px)] [background-size:16px_16px] opacity-10"></div>
           <div className="relative z-10 flex flex-col items-center">
-            <div className="flex items-center gap-3">
-              <div className="h-[2px] w-8 bg-gradient-to-r from-transparent to-[#D4AF37] opacity-80"></div>
-              <svg className="w-16 h-16 filter drop-shadow-[0_4px_10px_rgba(212,175,55,0.3)]" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                  <linearGradient id="gold-emblem" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#AA771C" />
-                    <stop offset="25%" stopColor="#F3E5AB" />
-                    <stop offset="50%" stopColor="#D4AF37" />
-                    <stop offset="75%" stopColor="#F3E5AB" />
-                    <stop offset="100%" stopColor="#AA771C" />
-                  </linearGradient>
-                  <linearGradient id="emerald-emblem" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#064E3B" />
-                    <stop offset="50%" stopColor="#10B981" />
-                    <stop offset="100%" stopColor="#34D399" />
-                  </linearGradient>
-                  <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
-                    <feDropShadow dx="1" dy="2" stdDeviation="2" floodColor="#000" floodOpacity="0.5" />
-                  </filter>
-                </defs>
-                <path d="M 62 25 C 42 25, 32 36, 32 50 C 32 64, 42 75, 62 75" stroke="url(#gold-emblem)" strokeWidth="10" strokeLinecap="round" fill="none" filter="url(#shadow)" />
-                <path d="M 45 50 C 45 35, 62 30, 65 30 C 65 45, 55 65, 45 50 Z" fill="url(#emerald-emblem)" stroke="url(#gold-emblem)" strokeWidth="2" filter="url(#shadow)" />
-                <path d="M 45 50 C 53 43, 61 38, 65 30" stroke="url(#gold-emblem)" strokeWidth="1" strokeLinecap="round" />
-              </svg>
-              <div className="h-[2px] w-8 bg-gradient-to-l from-transparent to-[#D4AF37] opacity-80"></div>
-            </div>
-            <h2 className="font-title text-[32px] font-black text-transparent bg-clip-text bg-gradient-to-r from-[#10B981] via-[#D4AF37] to-[#10B981] tracking-wide mt-2 leading-none uppercase filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
-              MCT
-            </h2>
-            <span className="font-slogan text-[12px] text-[#D4AF37] tracking-[0.4em] font-medium uppercase mt-1">
-              FOODS
-            </span>
+            <Logo className="w-56 h-auto" />
           </div>
         </div>
       </div>
