@@ -1,44 +1,30 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { ShoppingBag, Plus, Minus, ChevronRight, X, Trash2, Utensils, Facebook, MapPin, Loader2, Gift, Star } from 'lucide-react';
+import { ShoppingBag, Plus, Minus, ChevronRight, X, Trash2, Utensils, Facebook, MapPin, Loader2, Gift, Star, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { fetchSheetData, submitSheetData, SheetDish, SheetCategory, SHEET_ID } from './services/googleSheets';
-import { DEFAULT_MENU_DATA } from './data/menuData';
+import { DEFAULT_MENU_DATA, Dish, Category, Addon } from './data/menuData';
 
 // ==========================================
 // 📋 CONFIGURACIÓN DE LA PLANTILLA DEL MENÚ
 // ==========================================
-const RESTAURANTE_NAME = "Snack Tutti Frutti";
-const RESTAURANTE_SLOGAN = "Snack y Juguería Tropical";
-const WHATSAPP_NUMBER = "51942661467"; // Reemplaza con tu número de WhatsApp con código de país
-const FACEBOOK_URL = "";
-const MAPS_URL = "https://www.google.com/maps/search/?api=1&query=Puesto+E16+-+Interior+Mercado+2+-+Tarapoto";
-const LOGO_FOOTER_PATH = "/logo_tutti_frutti.png"; // Reemplaza con la ruta de tu logo en public/
-const BANNER_PATH = "/tropical_banner.png"; // Reemplaza con la ruta de tu banner en public/
-const MARQUEE_TEXT = "🍓 JUGOS FRESCOS Y NATURALES • 🌴 SABOR TROPICAL DESDE TARAPOTO • ¡PRUEBA NUESTROS ANTOJITOS DE LA SELVA! 🍍🍹 • ";
+const RESTAURANTE_NAME = "MCT FOODS";
+const RESTAURANTE_SLOGAN = "Frescura, Sostenibilidad y Alta Calidad";
+const WHATSAPP_NUMBER = "51900000000"; // Reemplaza con tu número de WhatsApp
+const FACEBOOK_URL = ""; 
+const MAPS_URL = ""; 
+const LOGO_FOOTER_PATH = ""; 
+const BANNER_PATH = ""; 
+const MARQUEE_TEXT = "🌿 MCT FOODS • FRESCO, NATURAL Y EXCLUSIVO • REALIZA TU PEDIDO POR WHATSAPP • ";
 // ==========================================
 
-// Mapa de imágenes locales por defecto para platos conocidos (vacío por defecto para la plantilla)
-const LOCAL_IMAGES: Record<string, string> = {
-  // "Nombre del Plato": "nombre_imagen.jpg",
-};
-
-interface Dish {
-  nombre: string;
-  descripcion?: string;
-  imagen?: string;
-  precio: string;
-}
-
-interface Category {
-  id: string;
-  nombre: string;
-  items: Dish[];
-}
+const LOCAL_IMAGES: Record<string, string> = {};
 
 interface CartItem {
   nombre: string;
   precio: string;
   cantidad: number;
+  opcionSeleccionada?: string;
+  adicionalesSeleccionados?: Addon[];
 }
 
 export default function App() {
@@ -48,6 +34,11 @@ export default function App() {
   const [showSummary, setShowSummary] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
+  // Customization modal states
+  const [customizingDish, setCustomizingDish] = useState<Dish | null>(null);
+  const [selectedOpcion, setSelectedOpcion] = useState<string>('');
+  const [selectedAdicionales, setSelectedAdicionales] = useState<Record<string, boolean>>({});
 
   // States for Birthday Form
   const [showBirthdayForm, setShowBirthdayForm] = useState(false);
@@ -128,25 +119,61 @@ export default function App() {
 
   const cartCount = useMemo(() => cart.reduce((acc, item) => acc + item.cantidad, 0), [cart]);
 
+  const areAdicionalesEqual = (a?: Addon[], b?: Addon[]) => {
+    if (!a && !b) return true;
+    if (!a || !b) return false;
+    if (a.length !== b.length) return false;
+    const aNames = a.map(x => x.nombre).sort();
+    const bNames = b.map(x => x.nombre).sort();
+    return aNames.every((val, index) => val === bNames[index]);
+  };
+
   const addToCart = (dish: Dish) => {
+    if (dish.opciones || dish.adicionales) {
+      setCustomizingDish(dish);
+      setSelectedOpcion(dish.opciones ? dish.opciones[0] : '');
+      setSelectedAdicionales({});
+    } else {
+      confirmAddToCart(dish);
+    }
+  };
+
+  const confirmAddToCart = (dish: Dish, opcion?: string, adicionales?: Addon[]) => {
     setCart(prev => {
-      const existing = prev.find(i => i.nombre === dish.nombre && i.precio === dish.precio);
+      const existing = prev.find(i => 
+        i.nombre === dish.nombre && 
+        i.precio === dish.precio &&
+        i.opcionSeleccionada === opcion &&
+        areAdicionalesEqual(i.adicionalesSeleccionados, adicionales)
+      );
       if (existing) {
         return prev.map(i =>
-          (i.nombre === dish.nombre && i.precio === dish.precio)
+          (i.nombre === dish.nombre && i.precio === dish.precio && i.opcionSeleccionada === opcion && areAdicionalesEqual(i.adicionalesSeleccionados, adicionales))
             ? { ...i, cantidad: i.cantidad + 1 }
             : i
         );
       }
-      return [...prev, { nombre: dish.nombre, precio: dish.precio, cantidad: 1 }];
+      return [...prev, { 
+        nombre: dish.nombre, 
+        precio: dish.precio, 
+        cantidad: 1, 
+        opcionSeleccionada: opcion, 
+        adicionalesSeleccionados: adicionales 
+      }];
     });
+    setCustomizingDish(null);
   };
 
-  const updateQuantity = (nombre: string, precio: string, delta: number) => {
+  const updateQuantity = (nombre: string, precio: string, opcionSeleccionada?: string, adicionalesSeleccionados?: Addon[], delta: number = 0) => {
     setCart(prev =>
       prev
         .map(i => {
-          if (i.nombre === nombre && i.precio === precio) {
+          if (
+            i.nombre === nombre && 
+            i.precio === precio && 
+            i.opcionSeleccionada === opcionSeleccionada && 
+            areAdicionalesEqual(i.adicionalesSeleccionados, adicionalesSeleccionados)
+          ) {
             const newQty = i.cantidad + delta;
             return newQty > 0 ? { ...i, cantidad: newQty } : null;
           }
@@ -159,16 +186,30 @@ export default function App() {
   const calculateTotal = () => {
     return cart.reduce((acc, item) => {
       const cleanPrice = item.precio.replace(/^[^\d]*/, '');
-      const num = parseFloat(cleanPrice) || 0;
-      return acc + num * item.cantidad;
+      const baseNum = parseFloat(cleanPrice) || 0;
+      const addonsNum = item.adicionalesSeleccionados?.reduce((sum, add) => sum + add.precio, 0) || 0;
+      return acc + (baseNum + addonsNum) * item.cantidad;
     }, 0);
   };
 
   const sendToWhatsApp = () => {
     const total = calculateTotal();
-    let message = `*Hola ${RESTAURANTE_NAME}, deseo realizar un pedido:*\n\n`;
+    let message = `*Hola MCT FOODS, deseo realizar un pedido:*\n\n`;
     cart.forEach(item => {
-      message += `• ${item.cantidad} x ${item.nombre} (${item.precio})\n`;
+      let details = "";
+      if (item.opcionSeleccionada) {
+        details += ` (${item.opcionSeleccionada})`;
+      }
+      if (item.adicionalesSeleccionados && item.adicionalesSeleccionados.length > 0) {
+        const extraNames = item.adicionalesSeleccionados.map(a => `${a.nombre} (+S/.${a.precio.toFixed(2)})`).join(', ');
+        details += ` [Extras: ${extraNames}]`;
+      }
+      
+      const itemBasePrice = parseFloat(item.precio.replace(/^[^\d]*/, '')) || 0;
+      const itemAddonsPrice = item.adicionalesSeleccionados?.reduce((sum, a) => sum + a.precio, 0) || 0;
+      const unitTotal = itemBasePrice + itemAddonsPrice;
+      
+      message += `• ${item.cantidad} x ${item.nombre}${details} (S/.${unitTotal.toFixed(2)} c/u)\n`;
     });
     message += `\n*TOTAL: S/.${total.toFixed(2)}*`;
     const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
@@ -236,7 +277,7 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-white">
+      <div className="flex flex-col items-center justify-center min-h-screen bg-[#0F0F10]">
         <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
         <p className="font-slogan text-primary font-bold tracking-widest uppercase text-xs">Cargando delicias...</p>
       </div>
@@ -244,11 +285,13 @@ export default function App() {
   }
 
   return (
-    <div className="max-w-md mx-auto bg-white min-h-screen relative shadow-2xl overflow-hidden flex flex-col font-sans">
-      <header className="sticky top-0 bg-white/95 backdrop-blur-md z-50 px-5 py-4 flex justify-between items-center border-b border-gray-100">
+    <div className="max-w-md mx-auto bg-[#0F0F10] min-h-screen relative shadow-2xl overflow-hidden flex flex-col font-sans text-white border-x border-[#2A2A2E]">
+      
+      {/* Header */}
+      <header className="sticky top-0 bg-[#0F0F10]/95 backdrop-blur-md z-50 px-5 py-4 flex justify-between items-center border-b border-[#2A2A2E]">
         <div className="flex flex-col items-start">
-          <h1 className="font-title text-[28px] text-primary leading-none tracking-wide">{RESTAURANTE_NAME}</h1>
-          <span className="font-slogan text-[11px] text-secondary font-bold tracking-wider mt-0.5">{RESTAURANTE_SLOGAN}</span>
+          <h1 className="font-title text-[24px] font-black text-primary leading-none tracking-wider">{RESTAURANTE_NAME}</h1>
+          <span className="font-slogan text-[10px] text-secondary font-bold tracking-widest mt-1 uppercase">{RESTAURANTE_SLOGAN}</span>
         </div>
         <div className="flex items-center gap-2">
           {FACEBOOK_URL && (
@@ -257,9 +300,9 @@ export default function App() {
               target="_blank"
               rel="noopener noreferrer"
               whileTap={{ scale: 0.95 }}
-              className="w-11 h-11 bg-primary/10 rounded-full flex items-center justify-center text-primary cursor-pointer"
+              className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center text-primary cursor-pointer border border-primary/20"
             >
-              <Facebook size={22} />
+              <Facebook size={20} />
             </motion.a>
           )}
           {MAPS_URL && (
@@ -268,19 +311,19 @@ export default function App() {
               target="_blank"
               rel="noopener noreferrer"
               whileTap={{ scale: 0.95 }}
-              className="w-11 h-11 bg-primary/10 rounded-full flex items-center justify-center text-primary cursor-pointer"
+              className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center text-primary cursor-pointer border border-primary/20"
             >
-              <MapPin size={22} />
+              <MapPin size={20} />
             </motion.a>
           )}
           <motion.div
             onClick={() => cartCount > 0 && setShowSummary(true)}
             whileTap={{ scale: 0.95 }}
-            className="w-11 h-11 bg-primary/10 rounded-full flex items-center justify-center relative cursor-pointer"
+            className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center relative cursor-pointer border border-primary/20"
           >
-            <ShoppingBag size={22} className="text-primary" />
+            <ShoppingBag size={20} className="text-primary" />
             {cartCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 min-w-[20px] h-5 bg-secondary text-white rounded-full text-[10px] font-bold flex items-center justify-center px-1">
+              <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-4.5 bg-secondary text-black rounded-full text-[9px] font-extrabold flex items-center justify-center px-1">
                 {cartCount}
               </span>
             )}
@@ -288,40 +331,76 @@ export default function App() {
         </div>
       </header>
 
-      <div className="w-full bg-primary py-2 overflow-hidden flex items-center">
-        <div className="animate-marquee flex gap-6 text-white font-slogan font-bold text-[11px] tracking-widest uppercase whitespace-nowrap">
+      {/* Marquee */}
+      <div className="w-full bg-primary py-1.5 overflow-hidden flex items-center">
+        <div className="animate-marquee flex gap-6 text-black font-slogan font-extrabold text-[10px] tracking-widest uppercase whitespace-nowrap">
           {[...Array(10)].map((_, i) => (
             <span key={i}>{MARQUEE_TEXT}</span>
           ))}
         </div>
       </div>
 
+      {/* Birthday Promo */}
       <div className="px-5 pt-4">
         <motion.button 
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.95 }}
           animate={{ 
-            boxShadow: ["0px 0px 0px 0px rgba(245,158,11,0.6)", "0px 0px 20px 8px rgba(245,158,11,0)", "0px 0px 0px 0px rgba(245,158,11,0)"] 
+            boxShadow: ["0px 0px 0px 0px rgba(212,175,55,0.4)", "0px 0px 20px 8px rgba(212,175,55,0)", "0px 0px 0px 0px rgba(212,175,55,0)"] 
           }}
-          transition={{ repeat: Infinity, duration: 1.5 }}
+          transition={{ repeat: Infinity, duration: 2 }}
           onClick={() => setShowBirthdayForm(true)}
-          className="w-full bg-gradient-to-r from-yellow-500 via-secondary to-amber-500 text-white py-3 px-4 rounded-2xl flex items-center justify-center gap-2 font-bold text-[10px] sm:text-[11px] uppercase tracking-wide border border-yellow-400 relative overflow-hidden group text-center"
+          className="w-full bg-gradient-to-r from-primary via-secondary to-primary text-black py-3 px-4 rounded-2xl flex items-center justify-center gap-2 font-bold text-[10px] uppercase tracking-wide border border-primary/40 relative overflow-hidden group text-center"
         >
-          <div className="absolute inset-0 shimmer opacity-30 mix-blend-overlay"></div>
-          <Gift size={18} className="animate-bounce shrink-0" />
-          <span>¡Ponle sabor y color a tu cumpleaños! 🍓 <span className="text-yellow-100 font-black underline">Regístrate aquí</span> y llévate un batido Tutti Frutti de cortesía para celebrar de forma tropical. 🥤🎁</span>
+          <div className="absolute inset-0 shimmer opacity-20 mix-blend-overlay"></div>
+          <Gift size={16} className="animate-bounce shrink-0" />
+          <span>¡Celebra tu cumpleaños con nosotros! 🌿 <span className="underline font-black">Regístrate aquí</span> y llévate un batido saludable de cortesía. 🥤🎁</span>
         </motion.button>
       </div>
 
+      {/* 3D realistic logo banner */}
       <div className="px-5 pt-4 pb-3">
-        <div className="relative w-full rounded-3xl overflow-hidden shadow-xl aspect-[2/1] bg-gradient-to-br from-primary/10 to-secondary/15 flex flex-col items-center justify-center text-center p-4 border border-dashed border-primary/20">
-          <p className="font-dish font-bold text-primary text-sm uppercase tracking-wider">
-            aca va a imagen
-          </p>
+        <div className="relative w-full rounded-3xl overflow-hidden shadow-2xl aspect-[2/1] bg-gradient-to-br from-[#161618] to-[#0A0A0B] flex flex-col items-center justify-center text-center p-6 border border-[#D4AF37]/20">
+          <div className="absolute inset-0 bg-[radial-gradient(#d4af37_1px,transparent_1px)] [background-size:16px_16px] opacity-10"></div>
+          <div className="relative z-10 flex flex-col items-center">
+            <div className="flex items-center gap-3">
+              <div className="h-[2px] w-8 bg-gradient-to-r from-transparent to-[#D4AF37] opacity-80"></div>
+              <svg className="w-16 h-16 filter drop-shadow-[0_4px_10px_rgba(212,175,55,0.3)]" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient id="gold-emblem" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#AA771C" />
+                    <stop offset="25%" stopColor="#F3E5AB" />
+                    <stop offset="50%" stopColor="#D4AF37" />
+                    <stop offset="75%" stopColor="#F3E5AB" />
+                    <stop offset="100%" stopColor="#AA771C" />
+                  </linearGradient>
+                  <linearGradient id="emerald-emblem" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#064E3B" />
+                    <stop offset="50%" stopColor="#10B981" />
+                    <stop offset="100%" stopColor="#34D399" />
+                  </linearGradient>
+                  <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+                    <feDropShadow dx="1" dy="2" stdDeviation="2" floodColor="#000" floodOpacity="0.5" />
+                  </filter>
+                </defs>
+                <path d="M 62 25 C 42 25, 32 36, 32 50 C 32 64, 42 75, 62 75" stroke="url(#gold-emblem)" strokeWidth="10" strokeLinecap="round" fill="none" filter="url(#shadow)" />
+                <path d="M 45 50 C 45 35, 62 30, 65 30 C 65 45, 55 65, 45 50 Z" fill="url(#emerald-emblem)" stroke="url(#gold-emblem)" strokeWidth="2" filter="url(#shadow)" />
+                <path d="M 45 50 C 53 43, 61 38, 65 30" stroke="url(#gold-emblem)" strokeWidth="1" strokeLinecap="round" />
+              </svg>
+              <div className="h-[2px] w-8 bg-gradient-to-l from-transparent to-[#D4AF37] opacity-80"></div>
+            </div>
+            <h2 className="font-title text-[32px] font-black text-transparent bg-clip-text bg-gradient-to-r from-[#10B981] via-[#D4AF37] to-[#10B981] tracking-wide mt-2 leading-none uppercase filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
+              MCT
+            </h2>
+            <span className="font-slogan text-[12px] text-[#D4AF37] tracking-[0.4em] font-medium uppercase mt-1">
+              FOODS
+            </span>
+          </div>
         </div>
       </div>
 
-      <div className="px-5 py-3 overflow-x-auto no-scrollbar">
+      {/* Category selector */}
+      <div className="px-5 py-3 overflow-x-auto no-scrollbar bg-[#0F0F10]">
         <div className="flex gap-2 w-max">
           {categories.map(cat => (
             <button
@@ -329,8 +408,8 @@ export default function App() {
               onClick={() => scrollToCategory(cat.id)}
               className={`px-4 py-2 rounded-full text-[11px] font-category font-semibold whitespace-nowrap transition-all duration-200 border
                 ${activeCategory === cat.id
-                  ? 'bg-primary text-white border-primary shadow-md shadow-primary/20'
-                  : 'bg-white text-dark border-gray-200 hover:border-primary/40 hover:text-primary'
+                  ? 'bg-primary text-black border-primary shadow-md shadow-primary/20'
+                  : 'bg-[#1A1A1C] text-white border-[#2A2A2E] hover:border-primary/40 hover:text-primary'
                 }`}
             >
               {cat.nombre}
@@ -339,96 +418,144 @@ export default function App() {
         </div>
       </div>
 
+      {/* Menu items listing */}
       <main className="flex-1 overflow-y-auto pb-32 px-5">
         {categories.map(cat => (
           <section key={cat.id} id={`cat-${cat.id}`} className="mb-10 scroll-mt-28">
             <div className="mb-5 pt-2">
               <div className="flex items-center gap-2 mb-1">
-                <Utensils className="text-primary wave-icon" size={22} />
-                <h3 className="font-category font-semibold text-primary text-[26px] leading-none tracking-wide category-underline">
+                <Utensils className="text-secondary wave-icon" size={20} />
+                <h3 className="font-category font-semibold text-white text-[24px] leading-none tracking-wide category-underline">
                   {cat.nombre}
                 </h3>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              {cat.items.map((dish, idx) => (
-                <motion.div
-                  key={idx}
-                  whileHover={{ y: -4 }}
-                  className="bg-white rounded-[2rem] overflow-hidden flex flex-col shadow-sm border border-gray-100 hover:border-primary/30 hover:shadow-md transition-all duration-200"
-                >
-                  <div className="bg-primary/5 aspect-square flex items-center justify-center relative overflow-hidden p-4 border-b border-gray-100">
-                    <span className="font-dish font-bold text-[11px] text-primary uppercase tracking-wider text-center">
-                      aca va a imagen
-                    </span>
-                  </div>
-                  
-                  <div className="p-4 flex flex-col flex-1">
-                    <h4 className="font-dish font-bold text-dark text-[13px] leading-tight mb-1">
-                      {dish.nombre}
-                    </h4>
-                    {dish.descripcion && (
-                      <p className="text-[10px] text-gray-400 leading-tight mb-2 line-clamp-3">
+            {/* Special display for Menú del Día */}
+            {cat.id === 'menu-del-dia' ? (
+              <div className="bg-gradient-to-br from-[#1A1A1C] to-[#252528] rounded-[2rem] border border-primary/30 p-6 shadow-xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 bg-primary text-black font-extrabold text-[9px] uppercase px-4 py-1.5 rounded-bl-2xl tracking-widest shadow-md">
+                  Oferta del Día
+                </div>
+                {cat.items.map((dish, idx) => (
+                  <div key={idx} className="flex flex-col gap-4">
+                    <div>
+                      <h4 className="font-title text-[20px] font-bold text-primary mb-2 leading-tight">
+                        {dish.nombre}
+                      </h4>
+                      <p className="text-xs text-gray-300 leading-relaxed mb-4">
                         {dish.descripcion}
                       </p>
-                    )}
-                    <div className="flex-1"></div>
-                    <div className="flex items-center justify-between mt-2">
-                      <span className="font-dish font-bold text-primary text-[16px] whitespace-nowrap">
+                    </div>
+                    <div className="flex items-center justify-between border-t border-[#2A2A2E] pt-4 mt-2">
+                      <span className="font-title font-black text-2xl text-secondary">
                         {dish.precio}
                       </span>
                       <motion.button
-                        whileTap={{ scale: 0.8 }}
+                        whileTap={{ scale: 0.9 }}
                         onClick={() => addToCart(dish)}
-                        className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-primary transition-colors duration-200 shrink-0"
+                        className="bg-primary hover:bg-primary/95 text-black px-6 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg shadow-primary/20"
                       >
-                        <Plus size={16} strokeWidth={3} />
+                        <Plus size={16} />
+                        Pedir Menú
                       </motion.button>
                     </div>
                   </div>
-                </motion.div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-4">
+                {cat.items.map((dish, idx) => (
+                  <motion.div
+                    key={idx}
+                    whileHover={{ y: -4 }}
+                    className="bg-[#1A1A1C] rounded-[2rem] overflow-hidden flex flex-col shadow-sm border border-[#2A2A2E] hover:border-primary/30 hover:shadow-md transition-all duration-200"
+                  >
+                    <div className="bg-[#242428] aspect-square flex items-center justify-center relative overflow-hidden p-4 border-b border-[#2A2A2E]">
+                      <span className="font-dish font-bold text-[10px] text-[#D4AF37] uppercase tracking-wider text-center flex flex-col items-center gap-1.5">
+                        <Utensils size={24} className="opacity-40" />
+                        MCT FOODS
+                      </span>
+                    </div>
+                    
+                    <div className="p-4 flex flex-col flex-1">
+                      <h4 className="font-dish font-bold text-white text-[13px] leading-tight mb-1">
+                        {dish.nombre}
+                      </h4>
+                      {dish.descripcion && (
+                        <p className="text-[10px] text-gray-400 leading-tight mb-2 line-clamp-3">
+                          {dish.descripcion}
+                        </p>
+                      )}
+                      {dish.acompanamiento && (
+                        <span className="text-[9px] text-secondary font-bold uppercase tracking-wider mt-1 mb-2">
+                          🥗 Acomp: {dish.acompanamiento}
+                        </span>
+                      )}
+                      <div className="flex-1"></div>
+                      <div className="flex items-center justify-between mt-2">
+                        <span className="font-dish font-bold text-primary text-[15px] whitespace-nowrap">
+                          {dish.precio}
+                        </span>
+                        <motion.button
+                          whileTap={{ scale: 0.8 }}
+                          onClick={() => addToCart(dish)}
+                          className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-primary border border-primary/20 hover:bg-primary hover:text-black transition-colors duration-200 shrink-0"
+                        >
+                          <Plus size={16} strokeWidth={3} />
+                        </motion.button>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
           </section>
         ))}
 
-        <section className="mt-8 mb-4 border border-gray-100 bg-gray-50 rounded-3xl p-5 text-center shadow-sm">
-          <h3 className="font-title text-primary text-[22px] leading-tight mb-2">¿Cómo estuvo todo?</h3>
-          <p className="text-[11px] text-gray-500 mb-4 px-4">Ayúdanos a mejorar calificando tu experiencia con nosotros</p>
+        {/* Review Promo Section */}
+        <section className="mt-8 mb-4 border border-[#2A2A2E] bg-[#1A1A1C] rounded-3xl p-5 text-center shadow-sm">
+          <h3 className="font-title text-primary text-[20px] leading-tight mb-1.5">¿Cómo estuvo todo?</h3>
+          <p className="text-[11px] text-gray-400 mb-4 px-4">Ayúdanos a mejorar calificando tu experiencia con nosotros</p>
           <motion.button 
             whileTap={{ scale: 0.95 }}
             onClick={() => setShowReviewForm(true)}
-            className="bg-primary text-white px-6 py-3 rounded-2xl font-bold text-sm shadow-md shadow-primary/20 flex items-center justify-center gap-2 mx-auto w-full"
+            className="bg-primary text-black px-6 py-3 rounded-2xl font-bold text-sm shadow-md shadow-primary/20 flex items-center justify-center gap-2 mx-auto w-full"
           >
-            <Star size={18} className="fill-white" />
+            <Star size={18} className="fill-black" />
             Reseña nuestra comida
           </motion.button>
         </section>
 
-        <footer className="mt-8 pt-8 pb-10 border-t border-gray-200 flex flex-col items-center justify-center">
-          <p className="font-title text-2xl text-primary mb-4">{RESTAURANTE_NAME}</p>
-          <div className="w-32 h-32 mb-6 rounded-2xl border border-dashed border-primary/30 bg-primary/5 flex items-center justify-center text-center p-2">
-            <span className="font-dish font-bold text-[10px] text-primary uppercase tracking-wide">aca va a imagen</span>
+        {/* Footer */}
+        <footer className="mt-8 pt-8 pb-10 border-t border-[#2A2A2E] flex flex-col items-center justify-center">
+          <p className="font-title text-xl text-primary font-black mb-3">{RESTAURANTE_NAME}</p>
+          <div className="relative w-24 h-24 mb-6 rounded-2xl border border-dashed border-primary/30 bg-[#1A1A1C] flex items-center justify-center text-center p-2">
+            <svg className="w-12 h-12 filter drop-shadow-[0_2px_4px_rgba(212,175,55,0.2)]" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M 62 25 C 42 25, 32 36, 32 50 C 32 64, 42 75, 62 75" stroke="#D4AF37" strokeWidth="10" strokeLinecap="round" fill="none" />
+              <path d="M 45 50 C 45 35, 62 30, 65 30 C 65 45, 55 65, 45 50 Z" fill="#10B981" stroke="#D4AF37" strokeWidth="2" />
+            </svg>
           </div>
-          <p className="text-[11px] text-gray-400 font-medium">© 2026 Todos los derechos reservados.</p>
+          <p className="text-[10px] text-gray-500 font-medium">© 2026 Todos los derechos reservados.</p>
         </footer>
 
-        <div className="bg-dark py-6 flex flex-col items-center justify-center">
-          <p className="text-[10px] font-bold tracking-[0.2em] uppercase mb-1 opacity-50 text-white/50">Digital Menu Experience</p>
+        {/* Powered by */}
+        <div className="bg-[#0B0B0C] py-6 flex flex-col items-center justify-center border-t border-[#2A2A2E] -mx-5 px-5">
+          <p className="text-[9px] font-bold tracking-[0.2em] uppercase mb-1 opacity-50 text-white/50">Digital Menu Experience</p>
           <motion.a 
             href="https://tymasolutions.lat/"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1 font-bold text-sm tracking-tight group cursor-pointer"
+            className="flex items-center gap-1 font-bold text-xs tracking-tight group cursor-pointer"
             whileTap={{ scale: 0.95 }}
           >
-            <span className="text-white group-hover:text-[#00BFFF] transition-colors duration-200">Hecho por Tyma</span>
-            <span className="text-[#00BFFF] group-hover:text-white transition-colors duration-200">Solutions</span>
+            <span className="text-white group-hover:text-primary transition-colors duration-200">Hecho por Tyma</span>
+            <span className="text-primary group-hover:text-white transition-colors duration-200">Solutions</span>
           </motion.a>
         </div>
       </main>
 
+      {/* Floating Cart Button Preview */}
       <AnimatePresence>
         {cartCount > 0 && !showSummary && (
           <motion.div
@@ -437,190 +564,270 @@ export default function App() {
             exit={{ y: 100 }}
             className="fixed bottom-0 w-full max-w-md p-5 z-40"
           >
-            <div className="glass rounded-[2rem] p-4 flex items-center justify-between border border-white/50 shadow-2xl">
+            <div className="glass rounded-[2rem] p-4 flex items-center justify-between border border-white/10 shadow-2xl bg-[#1A1A1C]/90 backdrop-blur-md">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-primary rounded-2xl flex items-center justify-center relative overflow-hidden">
                   <div className="shimmer absolute inset-0 opacity-20"></div>
-                  <ShoppingBag size={20} className="text-white" />
+                  <ShoppingBag size={20} className="text-black" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Tu Pedido</p>
-                  <p className="font-bold text-dark text-lg">{cartCount} Artículos</p>
+                  <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Tu Pedido</p>
+                  <p className="font-bold text-white text-md">{cartCount} Artículos</p>
                 </div>
               </div>
               <button
                 onClick={() => setShowSummary(true)}
-                className="bg-primary text-white px-6 py-3 rounded-2xl flex items-center gap-2 shadow-lg shadow-primary/30 font-bold text-sm"
+                className="bg-primary text-black px-6 py-3 rounded-2xl flex items-center gap-2 shadow-lg shadow-primary/20 font-bold text-xs uppercase tracking-wide"
               >
                 Ver Pedido
-                <ChevronRight size={18} />
+                <ChevronRight size={16} />
               </button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
+      {/* Summary Cart Modal */}
       <AnimatePresence>
         {showSummary && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-end justify-center p-4 lg:p-0"
+            className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-end justify-center p-4 lg:p-0"
           >
             <motion.div
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
-              className="bg-white w-full max-w-md rounded-t-[3rem] p-6 max-h-[85vh] overflow-y-auto"
+              className="bg-[#1A1A1C] border-t border-[#2A2A2E] w-full max-w-md rounded-t-[3rem] p-6 max-h-[85vh] overflow-y-auto"
             >
               <div className="flex justify-between items-center mb-6">
-                <h2 className="font-title text-2xl text-primary">Mi Pedido</h2>
+                <h2 className="font-title text-2xl font-black text-primary">Mi Pedido</h2>
                 <button
                   onClick={() => setShowSummary(false)}
-                  className="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center"
+                  className="w-10 h-10 bg-[#252528] rounded-full flex items-center justify-center border border-[#333338]"
                 >
                   <X size={20} className="text-gray-400" />
                 </button>
               </div>
               <div className="space-y-3 mb-8">
-                {cart.map(item => (
-                  <div
-                    key={`${item.nombre}-${item.precio}`}
-                    className="flex items-center gap-4 bg-gray-50 p-4 rounded-2xl"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-dish font-semibold text-dark text-sm truncate">{item.nombre}</h4>
-                      <p className="font-dish text-xs text-primary font-bold">{item.precio}</p>
-                    </div>
-                    <div className="flex items-center gap-3 bg-white px-3 py-1.5 rounded-xl border border-gray-100">
-                      <button onClick={() => updateQuantity(item.nombre, item.precio, -1)} className="text-gray-400">
-                        <Minus size={16} />
-                      </button>
-                      <span className="font-dish font-bold text-sm w-4 text-center">{item.cantidad}</span>
-                      <button onClick={() => updateQuantity(item.nombre, item.precio, 1)} className="text-primary">
-                        <Plus size={16} />
-                      </button>
-                    </div>
-                    <button
-                      onClick={() => updateQuantity(item.nombre, item.precio, -item.cantidad)}
-                      className="text-red-300 ml-1"
+                {cart.map((item, idx) => {
+                  const itemBasePrice = parseFloat(item.precio.replace(/^[^\d]*/, '')) || 0;
+                  const itemAddonsPrice = item.adicionalesSeleccionados?.reduce((sum, a) => sum + a.precio, 0) || 0;
+                  const unitPrice = itemBasePrice + itemAddonsPrice;
+                  
+                  return (
+                    <div
+                      key={idx}
+                      className="flex items-center gap-4 bg-[#252528] p-4 rounded-2xl border border-[#333338]"
                     >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-                ))}
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-dish font-semibold text-white text-sm truncate">{item.nombre}</h4>
+                        {item.opcionSeleccionada && (
+                          <p className="text-[10px] text-secondary font-bold uppercase mt-0.5">Parte: {item.opcionSeleccionada}</p>
+                        )}
+                        {item.adicionalesSeleccionados && item.adicionalesSeleccionados.length > 0 && (
+                          <p className="text-[10px] text-gray-400 mt-0.5">
+                            + {item.adicionalesSeleccionados.map(a => a.nombre).join(', ')}
+                          </p>
+                        )}
+                        <p className="font-dish text-xs text-primary font-bold mt-1">S/.{unitPrice.toFixed(2)} c/u</p>
+                      </div>
+                      <div className="flex items-center gap-3 bg-[#1A1A1C] px-3 py-1.5 rounded-xl border border-[#2A2A2E]">
+                        <button onClick={() => updateQuantity(item.nombre, item.precio, item.opcionSeleccionada, item.adicionalesSeleccionados, -1)} className="text-gray-400">
+                          <Minus size={14} />
+                        </button>
+                        <span className="font-dish font-bold text-sm w-4 text-center text-white">{item.cantidad}</span>
+                        <button onClick={() => updateQuantity(item.nombre, item.precio, item.opcionSeleccionada, item.adicionalesSeleccionados, 1)} className="text-primary">
+                          <Plus size={14} />
+                        </button>
+                      </div>
+                      <button
+                        onClick={() => updateQuantity(item.nombre, item.precio, item.opcionSeleccionada, item.adicionalesSeleccionados, -item.cantidad)}
+                        className="text-red-400 ml-1"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
-              <div className="border-t border-dashed border-gray-200 pt-6 mb-8">
+              <div className="border-t border-dashed border-[#333338] pt-6 mb-8">
                 <div className="flex justify-between items-center">
-                  <h3 className="font-dish text-xl font-bold text-dark">Total a pagar</h3>
-                  <h3 className="font-dish text-xl font-bold text-primary">S/.{calculateTotal().toFixed(2)}</h3>
+                  <h3 className="font-dish text-lg font-bold text-white">Total a pagar</h3>
+                  <h3 className="font-dish text-xl font-bold text-secondary">S/.{calculateTotal().toFixed(2)}</h3>
                 </div>
               </div>
               <button
                 onClick={sendToWhatsApp}
-                className="w-full bg-[#25D366] text-white py-4 rounded-2xl flex items-center justify-center gap-3 shadow-xl shadow-green-100 hover:scale-[1.02] transition-transform font-bold"
+                className="w-full bg-[#25D366] text-black py-4 rounded-2xl flex items-center justify-center gap-3 shadow-xl shadow-green-900/10 hover:scale-[1.02] transition-transform font-bold text-sm"
               >
                 Enviar Pedido a WhatsApp
-                <ChevronRight size={20} />
+                <ChevronRight size={18} />
               </button>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
+      {/* Dish Customization Modal */}
       <AnimatePresence>
-        {selectedImage && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4"
-            onClick={() => setSelectedImage(null)}
-          >
-            <button
-              className="absolute top-6 right-6 w-12 h-12 bg-white/10 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition-colors"
-              onClick={(e) => {
-                e.stopPropagation();
-                setSelectedImage(null);
-              }}
-            >
-              <X size={28} />
-            </button>
-            <motion.img
-              initial={{ scale: 0.8, opacity: 0 }}
+        {customizingDish && (
+          <div className="fixed inset-0 z-[80] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              src={selectedImage}
-              alt="Plato ampliado"
-              className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            />
-          </motion.div>
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-[#1A1A1C] border border-[#2A2A2E] w-full max-w-sm rounded-[2rem] p-6 shadow-2xl relative"
+            >
+              <button
+                onClick={() => setCustomizingDish(null)}
+                className="absolute top-4 right-4 w-8 h-8 bg-[#252528] rounded-full flex items-center justify-center border border-[#333338]"
+              >
+                <X size={18} className="text-gray-400" />
+              </button>
+
+              <h3 className="font-title text-lg font-bold text-primary mb-1 pr-6">{customizingDish.nombre}</h3>
+              <p className="text-xs text-gray-400 mb-4">{customizingDish.descripcion}</p>
+
+              {/* Options selection (variants) */}
+              {customizingDish.opciones && (
+                <div className="mb-4">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Selecciona una opción</p>
+                  <div className="flex gap-2">
+                    {customizingDish.opciones.map(opt => (
+                      <button
+                        key={opt}
+                        type="button"
+                        onClick={() => setSelectedOpcion(opt)}
+                        className={`flex-1 py-2 px-3 rounded-xl border text-xs font-bold transition-all ${
+                          selectedOpcion === opt 
+                            ? 'bg-primary text-black border-primary' 
+                            : 'bg-[#252528] text-white border-[#333338] hover:border-gray-600'
+                        }`}
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Addons selection */}
+              {customizingDish.adicionales && (
+                <div className="mb-5">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">¿Deseas agregar adicionales?</p>
+                  <div className="space-y-2">
+                    {customizingDish.adicionales.map(add => (
+                      <button
+                        key={add.nombre}
+                        type="button"
+                        onClick={() => {
+                          setSelectedAdicionales(prev => ({
+                            ...prev,
+                            [add.nombre]: !prev[add.nombre]
+                          }));
+                        }}
+                        className={`w-full flex items-center justify-between p-3 rounded-xl border text-xs font-bold transition-all ${
+                          selectedAdicionales[add.nombre]
+                            ? 'bg-secondary/10 border-secondary text-secondary'
+                            : 'bg-[#252528] border-[#333338] text-white'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className={`w-4 h-4 rounded flex items-center justify-center border ${
+                            selectedAdicionales[add.nombre] ? 'bg-secondary border-secondary text-black' : 'border-gray-500'
+                          }`}>
+                            {selectedAdicionales[add.nombre] && <Check size={10} strokeWidth={4} />}
+                          </div>
+                          <span>{add.nombre}</span>
+                        </div>
+                        <span>+ S/.{add.precio.toFixed(2)}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  const adds = customizingDish.adicionales?.filter(a => selectedAdicionales[a.nombre]) || [];
+                  confirmAddToCart(customizingDish, selectedOpcion, adds);
+                }}
+                className="w-full bg-primary text-black py-3 rounded-xl font-bold text-xs uppercase tracking-wider shadow-lg shadow-primary/20 flex justify-center items-center gap-2"
+              >
+                Agregar al Pedido
+                <ChevronRight size={14} />
+              </button>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 
+      {/* Birthday Registration Modal */}
       <AnimatePresence>
         {showBirthdayForm && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+            className="fixed inset-0 z-[70] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
           >
             <motion.div
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
-              className="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto"
+              className="bg-[#1A1A1C] border border-[#2A2A2E] w-full max-w-sm rounded-[2rem] p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto"
             >
               <button
                 onClick={() => setShowBirthdayForm(false)}
-                className="absolute top-4 right-4 w-8 h-8 bg-gray-50 rounded-full flex items-center justify-center"
+                className="absolute top-4 right-4 w-8 h-8 bg-[#252528] rounded-full flex items-center justify-center border border-[#333338]"
               >
                 <X size={18} className="text-gray-400" />
               </button>
 
               <div className="flex flex-col items-center text-center mb-5 mt-2">
-                <div className="w-12 h-12 bg-amber-50 rounded-full flex items-center justify-center mb-3">
-                  <Gift size={24} className="text-secondary" />
+                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-3 border border-primary/20">
+                  <Gift size={24} className="text-primary" />
                 </div>
-                <h2 className="font-title text-2xl text-dark leading-none mb-2">¡Tu Cumpleaños!</h2>
-                <p className="text-xs text-gray-500">Déjanos tus datos para enviarte una sorpresa en tu día especial.</p>
+                <h2 className="font-title text-xl font-bold text-white mb-1.5">¡Tu Cumpleaños!</h2>
+                <p className="text-xs text-gray-400">Déjanos tus datos para enviarte una sorpresa en tu día especial.</p>
               </div>
 
               {birthdaySuccess ? (
-                <div className="bg-green-50 text-green-600 p-4 rounded-2xl text-center text-sm font-bold border border-green-100">
+                <div className="bg-secondary/10 text-secondary p-4 rounded-2xl text-center text-xs font-bold border border-secondary/20">
                   ¡Gracias! Tus datos han sido guardados.
                 </div>
               ) : (
                 <form onSubmit={handleBirthdaySubmit} className="space-y-3">
                   <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Nombre Completo</label>
-                    <input required type="text" value={birthdayData.nombre} onChange={e => setBirthdayData({...birthdayData, nombre: e.target.value})} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-secondary/50 transition-colors" placeholder="Ej. Juan Pérez" />
+                    <label className="text-[9px] font-bold text-gray-400 uppercase ml-1">Nombre Completo</label>
+                    <input required type="text" value={birthdayData.nombre} onChange={e => setBirthdayData({...birthdayData, nombre: e.target.value})} className="w-full bg-[#252528] border border-[#333338] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-primary/50 transition-colors" placeholder="Ej. Juan Pérez" />
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Teléfono</label>
+                    <label className="text-[9px] font-bold text-gray-400 uppercase ml-1">Teléfono</label>
                     <input required type="tel" minLength={9} maxLength={11} pattern="[0-9]*" value={birthdayData.telefono} onChange={e => {
                       const val = e.target.value.replace(/\D/g, '');
                       setBirthdayData({...birthdayData, telefono: val});
-                    }} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-secondary/50 transition-colors" placeholder="Ej. 987654321" />
+                    }} className="w-full bg-[#252528] border border-[#333338] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-primary/50 transition-colors" placeholder="Ej. 987654321" />
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Fecha de Nacimiento</label>
-                    <input required type="date" value={birthdayData.fechaNacimiento} onChange={e => setBirthdayData({...birthdayData, fechaNacimiento: e.target.value})} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-secondary/50 transition-colors text-gray-700" />
+                    <label className="text-[9px] font-bold text-gray-400 uppercase ml-1">Fecha de Nacimiento</label>
+                    <input required type="date" value={birthdayData.fechaNacimiento} onChange={e => setBirthdayData({...birthdayData, fechaNacimiento: e.target.value})} className="w-full bg-[#252528] border border-[#333338] rounded-xl px-4 py-2.5 text-xs text-gray-400 focus:outline-none focus:border-primary/50 transition-colors" />
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Distrito</label>
-                    <input required type="text" value={birthdayData.distrito} onChange={e => setBirthdayData({...birthdayData, distrito: e.target.value})} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-secondary/50 transition-colors" placeholder="Ej. Miraflores" />
+                    <label className="text-[9px] font-bold text-gray-400 uppercase ml-1">Distrito</label>
+                    <input required type="text" value={birthdayData.distrito} onChange={e => setBirthdayData({...birthdayData, distrito: e.target.value})} className="w-full bg-[#252528] border border-[#333338] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-primary/50 transition-colors" placeholder="Ej. Miraflores" />
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Correo Electrónico (Opcional)</label>
-                    <input type="email" value={birthdayData.correo} onChange={e => setBirthdayData({...birthdayData, correo: e.target.value})} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-secondary/50 transition-colors" placeholder="correo@ejemplo.com" />
+                    <label className="text-[9px] font-bold text-gray-400 uppercase ml-1">Correo Electrónico (Opcional)</label>
+                    <input type="email" value={birthdayData.correo} onChange={e => setBirthdayData({...birthdayData, correo: e.target.value})} className="w-full bg-[#252528] border border-[#333338] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-primary/50 transition-colors" placeholder="correo@ejemplo.com" />
                   </div>
                   
-                  <button disabled={isSubmittingBirthday} type="submit" className="w-full bg-secondary text-white py-3 rounded-xl font-bold text-sm shadow-md shadow-secondary/20 mt-2 disabled:opacity-70 flex justify-center items-center">
-                    {isSubmittingBirthday ? <Loader2 size={18} className="animate-spin" /> : "Guardar mis datos"}
+                  <button disabled={isSubmittingBirthday} type="submit" className="w-full bg-primary text-black py-3 rounded-xl font-bold text-xs uppercase tracking-wide shadow-md shadow-primary/10 mt-2 disabled:opacity-70 flex justify-center items-center">
+                    {isSubmittingBirthday ? <Loader2 size={16} className="animate-spin" /> : "Guardar mis datos"}
                   </button>
                 </form>
               )}
@@ -629,44 +836,45 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      {/* Review Submission Modal */}
       <AnimatePresence>
         {showReviewForm && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+            className="fixed inset-0 z-[70] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
           >
             <motion.div
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
-              className="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto"
+              className="bg-[#1A1A1C] border border-[#2A2A2E] w-full max-w-sm rounded-[2rem] p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto"
             >
               <button
                 onClick={() => setShowReviewForm(false)}
-                className="absolute top-4 right-4 w-8 h-8 bg-gray-50 rounded-full flex items-center justify-center"
+                className="absolute top-4 right-4 w-8 h-8 bg-[#252528] rounded-full flex items-center justify-center border border-[#333338]"
               >
                 <X size={18} className="text-gray-400" />
               </button>
 
               <div className="flex flex-col items-center text-center mb-5 mt-2">
-                <div className="w-12 h-12 bg-teal-50 rounded-full flex items-center justify-center mb-3">
-                  <Star size={24} className="text-primary fill-primary" />
+                <div className="w-12 h-12 bg-secondary/10 rounded-full flex items-center justify-center mb-3 border border-secondary/20">
+                  <Star size={24} className="text-secondary fill-secondary" />
                 </div>
-                <h2 className="font-title text-2xl text-dark leading-none mb-2">¡Calificanos!</h2>
-                <p className="text-xs text-gray-500">Tu opinión es muy importante para nosotros.</p>
+                <h2 className="font-title text-xl font-bold text-white mb-1.5">¡Califícanos!</h2>
+                <p className="text-xs text-gray-400">Tu opinión es muy importante para nosotros.</p>
               </div>
 
               {reviewSuccess ? (
-                <div className="bg-green-50 text-green-600 p-4 rounded-2xl text-center text-sm font-bold border border-green-100">
+                <div className="bg-secondary/10 text-secondary p-4 rounded-2xl text-center text-xs font-bold border border-secondary/20">
                   ¡Gracias por tu reseña! Nos ayuda a mejorar.
                 </div>
               ) : (
                 <form onSubmit={handleReviewSubmit} className="space-y-5">
                   
-                  <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 flex flex-col items-center">
-                    <p className="text-xs font-bold text-gray-500 mb-2">Atención del Mozo</p>
+                  <div className="bg-[#252528] p-4 rounded-2xl border border-[#333338] flex flex-col items-center">
+                    <p className="text-xs font-bold text-gray-300 mb-2">Atención del Mozo</p>
                     <div className="flex gap-1">
                       {[1,2,3,4,5].map(star => (
                         <button 
@@ -674,14 +882,14 @@ export default function App() {
                           onClick={() => setReviewData({...reviewData, estrellasMozo: star})}
                           className="p-1 transition-transform hover:scale-110"
                         >
-                          <Star size={28} className={reviewData.estrellasMozo >= star ? "text-yellow-400 fill-yellow-400" : "text-gray-300"} />
+                          <Star size={26} className={reviewData.estrellasMozo >= star ? "text-primary fill-primary" : "text-gray-600"} />
                         </button>
                       ))}
                     </div>
                   </div>
 
-                  <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 flex flex-col items-center">
-                    <p className="text-xs font-bold text-gray-500 mb-2">Calidad de la Comida</p>
+                  <div className="bg-[#252528] p-4 rounded-2xl border border-[#333338] flex flex-col items-center">
+                    <p className="text-xs font-bold text-gray-300 mb-2">Calidad de la Comida</p>
                     <div className="flex gap-1">
                       {[1,2,3,4,5].map(star => (
                         <button 
@@ -689,25 +897,25 @@ export default function App() {
                           onClick={() => setReviewData({...reviewData, estrellasComida: star})}
                           className="p-1 transition-transform hover:scale-110"
                         >
-                          <Star size={28} className={reviewData.estrellasComida >= star ? "text-yellow-400 fill-yellow-400" : "text-gray-300"} />
+                          <Star size={26} className={reviewData.estrellasComida >= star ? "text-primary fill-primary" : "text-gray-600"} />
                         </button>
                       ))}
                     </div>
                   </div>
 
                   <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Comentario (Opcional)</label>
+                    <label className="text-[9px] font-bold text-gray-400 uppercase ml-1">Comentario (Opcional)</label>
                     <textarea 
                       rows={3} 
                       value={reviewData.comentario} 
                       onChange={e => setReviewData({...reviewData, comentario: e.target.value})} 
-                      className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary/50 transition-colors resize-none mt-1" 
+                      className="w-full bg-[#252528] border border-[#333338] rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-primary/50 transition-colors resize-none mt-1" 
                       placeholder="Cuéntanos más sobre tu experiencia..." 
                     />
                   </div>
                   
-                  <button disabled={isSubmittingReview} type="submit" className="w-full bg-primary text-white py-3 rounded-xl font-bold text-sm shadow-md shadow-primary/20 mt-2 disabled:opacity-70 flex justify-center items-center">
-                    {isSubmittingReview ? <Loader2 size={18} className="animate-spin" /> : "Enviar Reseña"}
+                  <button disabled={isSubmittingReview} type="submit" className="w-full bg-primary text-black py-3 rounded-xl font-bold text-xs uppercase tracking-wider shadow-md shadow-primary/10 mt-2 disabled:opacity-70 flex justify-center items-center">
+                    {isSubmittingReview ? <Loader2 size={16} className="animate-spin" /> : "Enviar Reseña"}
                   </button>
                 </form>
               )}
