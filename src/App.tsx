@@ -387,6 +387,9 @@ export default function App() {
         const extraNames = item.adicionalesSeleccionados.map(a => `${a.nombre} (+S/.${a.precio.toFixed(2)})`).join(', ');
         details += ` [Extras: ${extraNames}]`;
       }
+      if (item.nombre.includes('Menú del Día') && item.descripcion) {
+        details += ` [${item.descripcion}]`;
+      }
       
       const itemBasePrice = parseFloat(item.precio.replace(/^[^\d]*/, '')) || 0;
       const itemAddonsPrice = item.adicionalesSeleccionados?.reduce((sum, a) => sum + a.precio, 0) || 0;
@@ -585,9 +588,6 @@ export default function App() {
             {/* Special display for Menú del Día */}
             {cat.id === 'menu-del-dia' ? (
               <div className="bg-gradient-to-br from-[#1A1A1C] to-[#252528] rounded-[2rem] border border-primary/30 p-6 shadow-xl relative overflow-hidden">
-                <div className="absolute top-0 right-0 bg-primary text-black font-extrabold text-[9px] uppercase px-4 py-1.5 rounded-bl-2xl tracking-widest shadow-md">
-                  Oferta del Día
-                </div>
                 {menuDia ? (
                   <div className="flex flex-col gap-4">
                     <div>
