@@ -685,6 +685,16 @@ export default function App() {
                 ) : (
                   cat.items.map((dish, idx) => (
                     <div key={idx} className="flex flex-col gap-4">
+                      {dish.imagen && (
+                        <div className="relative w-full h-48 rounded-2xl overflow-hidden border border-[#2A2A2E]">
+                          <img
+                            src={dish.imagen}
+                            alt={dish.nombre}
+                            className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-300"
+                            onClick={() => setSelectedImage(dish.imagen)}
+                          />
+                        </div>
+                      )}
                       <div>
                         <h4 className="font-title text-[20px] font-bold text-primary mb-2 leading-tight">
                           {dish.nombre}
@@ -718,11 +728,20 @@ export default function App() {
                     whileHover={{ y: -4 }}
                     className="bg-[#1A1A1C] rounded-[2rem] overflow-hidden flex flex-col shadow-sm border border-[#2A2A2E] hover:border-primary/30 hover:shadow-md transition-all duration-200"
                   >
-                    <div className="bg-[#242428] aspect-square flex items-center justify-center relative overflow-hidden p-4 border-b border-[#2A2A2E]">
-                      <span className="font-dish font-bold text-[10px] text-[#D4AF37] uppercase tracking-wider text-center flex flex-col items-center gap-1.5">
-                        <Utensils size={24} className="opacity-40" />
-                        MCT FOODS
-                      </span>
+                    <div className="bg-[#242428] aspect-square flex items-center justify-center relative overflow-hidden border-b border-[#2A2A2E]">
+                      {dish.imagen ? (
+                        <img
+                          src={dish.imagen}
+                          alt={dish.nombre}
+                          className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-300"
+                          onClick={() => setSelectedImage(dish.imagen)}
+                        />
+                      ) : (
+                        <span className="font-dish font-bold text-[10px] text-[#D4AF37] uppercase tracking-wider text-center flex flex-col items-center gap-1.5 p-4">
+                          <Utensils size={24} className="opacity-40" />
+                          MCT FOODS
+                        </span>
+                      )}
                     </div>
                     
                     <div className="p-4 flex flex-col flex-1">
@@ -1166,6 +1185,39 @@ export default function App() {
                   </button>
                 </form>
               )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Image Lightbox Modal */}
+      <AnimatePresence>
+        {selectedImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setSelectedImage(null)}
+            className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 cursor-zoom-out"
+          >
+            <motion.div
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+              className="relative max-w-full max-h-[90vh] overflow-hidden rounded-2xl border border-white/10"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <img
+                src={selectedImage}
+                alt="Vista ampliada"
+                className="max-w-full max-h-[85vh] object-contain"
+              />
+              <button
+                onClick={() => setSelectedImage(null)}
+                className="absolute top-4 right-4 w-10 h-10 bg-black/50 hover:bg-black/80 rounded-full flex items-center justify-center border border-white/20 text-white transition-colors"
+              >
+                <X size={20} />
+              </button>
             </motion.div>
           </motion.div>
         )}
