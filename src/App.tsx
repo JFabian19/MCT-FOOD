@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { ShoppingBag, Plus, Minus, ChevronRight, X, Trash2, Utensils, Facebook, MapPin, Loader2, Gift, Star, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { fetchSheetData, submitSheetData, SheetDish, SheetCategory, SHEET_ID } from './services/googleSheets';
+import { fetchSheetData, submitSheetData, SheetDish, SheetCategory, SheetMenuDia, SheetDesayunos, SHEET_ID } from './services/googleSheets';
 import { DEFAULT_MENU_DATA, Dish, Category, Addon } from './data/menuData';
 
 // ==========================================
@@ -9,7 +9,7 @@ import { DEFAULT_MENU_DATA, Dish, Category, Addon } from './data/menuData';
 // ==========================================
 const RESTAURANTE_NAME = "MCT FOODS";
 const RESTAURANTE_SLOGAN = "Frescura, Sostenibilidad y Alta Calidad";
-const WHATSAPP_NUMBER = "51900000000"; // Reemplaza con tu número de WhatsApp
+const WHATSAPP_NUMBER = "51965273758"; // Reemplaza con tu número de WhatsApp
 const FACEBOOK_URL = ""; 
 const MAPS_URL = ""; 
 const LOGO_FOOTER_PATH = ""; 
@@ -64,6 +64,17 @@ export default function App() {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
+  const [menuDia, setMenuDia] = useState<{
+    entradas: string[];
+    fondos: string[];
+    refrescos: string[];
+    precio: string;
+  } | null>(null);
+
+  const [selectedMenuEntrada, setSelectedMenuEntrada] = useState('');
+  const [selectedMenuFondo, setSelectedMenuFondo] = useState('');
+  const [selectedMenuRefresco, setSelectedMenuRefresco] = useState('');
+
   // Customization modal states
   const [customizingDish, setCustomizingDish] = useState<Dish | null>(null);
   const [selectedOpcion, setSelectedOpcion] = useState<string>('');
@@ -102,10 +113,103 @@ export default function App() {
           return;
         }
 
-        const [cats, dishes] = await Promise.all([
-          fetchSheetData<SheetCategory>('Categorías'),
-          fetchSheetData<SheetDish>('Platos')
-        ]);
+        let cats = await fetchSheetData<SheetCategory>('Categorías').catch(() => []);
+        if (cats.length === 0) {
+          cats = await fetchSheetData<SheetCategory>('Categorias').catch(() => []);
+        }
+
+        let dishes = await fetchSheetData<SheetDish>('Platos').catch(() => []);
+
+        let menuDiaRaw = await fetchSheetData<SheetMenuDia>('Menú del Día').catch(() => []);
+        if (menuDiaRaw.length === 0) {
+          menuDiaRaw = await fetchSheetData<SheetMenuDia>('Menu del Dia').catch(() => []);
+        }
+
+        let desayunosRaw = await fetchSheetData<SheetDesayunos>('Desayunos').catch(() => []);
+        if (desayunosRaw.length === 0) {
+          desayunosRaw = await fetchSheetData<SheetDesayunos>('Desayuno').catch(() => []);
+        }
+
+        let parsedMenuDia = null;
+        if (menuDiaRaw && menuDiaRaw.length > 0) {
+          const entradas: string[] = [];
+          const fondos: string[] = [];
+          const refrescos: string[] = [];
+          let precio = '';
+
+          menuDiaRaw.forEach(row => {
+            const keys = Object.keys(row);
+            
+            const entKey = keys.find(k => k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes("entrada"));
+            const fonKey = keys.find(k => {
+              const norm = k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+              return norm.includes("fondo") || norm.includes("segundo");
+            });
+            const refKey = keys.find(k => {
+              const norm = k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+              return norm.includes("bebida") || norm.includes("refresco");
+            });
+            const preKey = keys.find(k => k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes("precio"));
+
+            const ent = entKey ? row[entKey as keyof SheetMenuDia] : null;
+            if (ent && ent.trim()) entradas.push(ent.trim());
+
+            const fon = fonKey ? row[fonKey as keyof SheetMenuDia] : null;
+            if (fon && fon.trim()) fondos.push(fon.trim());
+
+            const ref = refKey ? row[refKey as keyof SheetMenuDia] : null;
+            if (ref && ref.trim()) refrescos.push(ref.trim());
+
+            const pre = preKey ? row[preKey as keyof SheetMenuDia] : null;
+            if (pre && pre.trim() && !precio) precio = pre.trim();
+          });
+
+          if (entradas.length > 0 || fondos.length > 0 || refrescos.length > 0) {
+            parsedMenuDia = {
+              entradas,
+              fondos,
+              refrescos,
+              precio: precio ? (precio.startsWith('S/.') ? precio : `S/. ${precio}`) : 'S/. 10.00'
+            };
+          }
+        }
+        setMenuDia(parsedMenuDia);
+
+        let defaultDesayunoPrice = 'S/. 12.00';
+        const rowWithPrice = desayunosRaw.find(row => {
+          const keys = Object.keys(row);
+          const preKey = keys.find(k => k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes("precio"));
+          return preKey && row[preKey as keyof SheetDesayunos];
+        });
+        if (rowWithPrice) {
+          const keys = Object.keys(rowWithPrice);
+          const preKey = keys.find(k => k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes("precio"));
+          const p = preKey ? rowWithPrice[preKey as keyof SheetDesayunos] || '' : '';
+          if (p.trim()) {
+            defaultDesayunoPrice = p.trim().startsWith('S/.') ? p.trim() : `S/. ${p.trim()}`;
+          }
+        }
+
+        const dynamicDesayunos = desayunosRaw
+          .filter(row => {
+            const keys = Object.keys(row);
+            const nomKey = keys.find(k => k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes("nombre"));
+            return nomKey && (row[nomKey as keyof SheetDesayunos] || '').trim();
+          })
+          .map(row => {
+            const keys = Object.keys(row);
+            const nomKey = keys.find(k => k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes("nombre"));
+            const preKey = keys.find(k => k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes("precio"));
+            
+            const n = nomKey ? (row[nomKey as keyof SheetDesayunos] || '').trim() : '';
+            let p = preKey ? (row[preKey as keyof SheetDesayunos] || '').trim() : '';
+            p = p ? (p.startsWith('S/.') ? p : `S/. ${p}`) : defaultDesayunoPrice;
+            return {
+              nombre: n,
+              descripcion: "Caldo tradicional, concentrado y reponedor.",
+              precio: p
+            };
+          });
 
         if (cats.length === 0 && dishes.length === 0) {
           setCategories(DEFAULT_MENU_DATA);
@@ -115,18 +219,39 @@ export default function App() {
           return;
         }
 
-        const formattedCategories: Category[] = cats.map(c => ({
-          id: c.nombre.toLowerCase().replace(/\s+/g, '-'),
-          nombre: c.nombre,
-          items: dishes
-            .filter(d => d.categoría === c.nombre)
+        const formattedCategories: Category[] = cats.map(c => {
+          const categoryName = c.Categoría || c.categoría || c.nombre || '';
+          const catId = categoryName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '-');
+          
+          let items = dishes
+            .filter(d => (d.Categoría || d.categoría) === categoryName)
             .map(d => ({
-              nombre: d['nombre del plato'],
-              descripcion: d.descripción,
-              precio: d.precio,
-              imagen: LOCAL_IMAGES[d['nombre del plato']] || d['URL de imagen'] || null
-            }))
-        }));
+              nombre: d.Nombre || d.nombre || d['nombre del plato'] || '',
+              descripcion: d.Descripción || d.descripción || d.descripcion || '',
+              precio: d.Precio || d.precio || '',
+              imagen: LOCAL_IMAGES[d.Nombre || d.nombre || d['nombre del plato'] || ''] || d['Imagen URL'] || d.imagenUrl || d['URL de imagen'] || null
+            }));
+
+          if ((catId === 'desayuno' || catId === 'desayunos') && dynamicDesayunos.length > 0) {
+            items = dynamicDesayunos;
+          }
+
+          if (catId === 'menu-del-dia' && items.length === 0 && !parsedMenuDia) {
+            const defaultMenuCat = DEFAULT_MENU_DATA.find(x => x.id === 'menu-del-dia');
+            if (defaultMenuCat) items = defaultMenuCat.items;
+          }
+
+          let finalCategoryName = categoryName;
+          if (catId === 'menu-del-dia') {
+            finalCategoryName = `${categoryName} (${obtenerFechaFormateada()})`;
+          }
+
+          return {
+            id: catId,
+            nombre: finalCategoryName,
+            items
+          };
+        });
 
         setCategories(formattedCategories);
         if (formattedCategories.length > 0) {
@@ -145,6 +270,35 @@ export default function App() {
 
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (menuDia) {
+      if (menuDia.entradas.length > 0) setSelectedMenuEntrada(menuDia.entradas[0]);
+      if (menuDia.fondos.length > 0) setSelectedMenuFondo(menuDia.fondos[0]);
+      if (menuDia.refrescos.length > 0) setSelectedMenuRefresco(menuDia.refrescos[0]);
+    }
+  }, [menuDia]);
+
+  const obtenerFechaFormateada = () => {
+    const opciones: Intl.DateTimeFormatOptions = { weekday: 'long', day: 'numeric', month: 'long' };
+    const dateStr = new Date().toLocaleDateString('es-PE', opciones);
+    return dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
+  };
+
+  const handleAddMenuDiaToCart = () => {
+    if (!menuDia) return;
+    const details = [];
+    if (selectedMenuEntrada) details.push(`Entrada: ${selectedMenuEntrada}`);
+    if (selectedMenuFondo) details.push(`Fondo: ${selectedMenuFondo}`);
+    if (selectedMenuRefresco) details.push(`Refresco: ${selectedMenuRefresco}`);
+    
+    const dish: Dish = {
+      nombre: `Menú del Día (${obtenerFechaFormateada()})`,
+      precio: menuDia.precio,
+      descripcion: details.join(' | ')
+    };
+    confirmAddToCart(dish);
+  };
 
   const cartCount = useMemo(() => cart.reduce((acc, item) => acc + item.cantidad, 0), [cart]);
 
@@ -254,7 +408,7 @@ export default function App() {
   const handleBirthdaySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmittingBirthday(true);
-    const success = await submitSheetData('Cumpleaños', {
+    const success = await submitSheetData('Fidelización', {
       timestamp: new Date().toLocaleString('es-PE'),
       nombre: birthdayData.nombre,
       telefono: birthdayData.telefono,
@@ -434,23 +588,93 @@ export default function App() {
                 <div className="absolute top-0 right-0 bg-primary text-black font-extrabold text-[9px] uppercase px-4 py-1.5 rounded-bl-2xl tracking-widest shadow-md">
                   Oferta del Día
                 </div>
-                {cat.items.map((dish, idx) => (
-                  <div key={idx} className="flex flex-col gap-4">
+                {menuDia ? (
+                  <div className="flex flex-col gap-4">
                     <div>
                       <h4 className="font-title text-[20px] font-bold text-primary mb-2 leading-tight">
-                        {dish.nombre}
+                        Menú del Día ({obtenerFechaFormateada()})
                       </h4>
-                      <p className="text-xs text-gray-300 leading-relaxed mb-4">
-                        {dish.descripcion}
+                      <p className="text-[11px] text-gray-400 leading-relaxed mb-3">
+                        Arma tu combinación favorita eligiendo una entrada, un segundo y un refresco.
                       </p>
                     </div>
+
+                    {/* Entrada Selector */}
+                    {menuDia.entradas.length > 0 && (
+                      <div>
+                        <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block mb-1.5">1. Elige tu Entrada</label>
+                        <div className="flex flex-wrap gap-1.5">
+                          {menuDia.entradas.map(ent => (
+                            <button
+                              key={ent}
+                              type="button"
+                              onClick={() => setSelectedMenuEntrada(ent)}
+                              className={`py-1.5 px-3 rounded-xl border text-[10px] font-bold transition-all ${
+                                selectedMenuEntrada === ent
+                                  ? 'bg-primary text-black border-primary'
+                                  : 'bg-[#252528] text-white border-[#333338] hover:border-gray-600'
+                              }`}
+                            >
+                              {ent}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Segundo/Fondo Selector */}
+                    {menuDia.fondos.length > 0 && (
+                      <div>
+                        <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block mb-1.5">2. Elige tu Plato de Fondo</label>
+                        <div className="flex flex-wrap gap-1.5">
+                          {menuDia.fondos.map(fon => (
+                            <button
+                              key={fon}
+                              type="button"
+                              onClick={() => setSelectedMenuFondo(fon)}
+                              className={`py-1.5 px-3 rounded-xl border text-[10px] font-bold transition-all ${
+                                selectedMenuFondo === fon
+                                  ? 'bg-primary text-black border-primary'
+                                  : 'bg-[#252528] text-white border-[#333338] hover:border-gray-600'
+                              }`}
+                            >
+                              {fon}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Refresco Selector */}
+                    {menuDia.refrescos.length > 0 && (
+                      <div>
+                        <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block mb-1.5">3. Elige tu Refresco</label>
+                        <div className="flex flex-wrap gap-1.5">
+                          {menuDia.refrescos.map(ref => (
+                            <button
+                              key={ref}
+                              type="button"
+                              onClick={() => setSelectedMenuRefresco(ref)}
+                              className={`py-1.5 px-3 rounded-xl border text-[10px] font-bold transition-all ${
+                                selectedMenuRefresco === ref
+                                  ? 'bg-primary text-black border-primary'
+                                  : 'bg-[#252528] text-white border-[#333338] hover:border-gray-600'
+                              }`}
+                            >
+                              {ref}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex items-center justify-between border-t border-[#2A2A2E] pt-4 mt-2">
                       <span className="font-title font-black text-2xl text-secondary">
-                        {dish.precio}
+                        {menuDia.precio}
                       </span>
                       <motion.button
                         whileTap={{ scale: 0.9 }}
-                        onClick={() => addToCart(dish)}
+                        onClick={handleAddMenuDiaToCart}
                         className="bg-primary hover:bg-primary/95 text-black px-6 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg shadow-primary/20"
                       >
                         <Plus size={16} />
@@ -458,7 +682,33 @@ export default function App() {
                       </motion.button>
                     </div>
                   </div>
-                ))}
+                ) : (
+                  cat.items.map((dish, idx) => (
+                    <div key={idx} className="flex flex-col gap-4">
+                      <div>
+                        <h4 className="font-title text-[20px] font-bold text-primary mb-2 leading-tight">
+                          {dish.nombre}
+                        </h4>
+                        <p className="text-xs text-gray-300 leading-relaxed mb-4">
+                          {dish.descripcion}
+                        </p>
+                      </div>
+                      <div className="flex items-center justify-between border-t border-[#2A2A2E] pt-4 mt-2">
+                        <span className="font-title font-black text-2xl text-secondary">
+                          {dish.precio}
+                        </span>
+                        <motion.button
+                          whileTap={{ scale: 0.9 }}
+                          onClick={() => addToCart(dish)}
+                          className="bg-primary hover:bg-primary/95 text-black px-6 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg shadow-primary/20"
+                        >
+                          <Plus size={16} />
+                          Pedir Menú
+                        </motion.button>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-4">
