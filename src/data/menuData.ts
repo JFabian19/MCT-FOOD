@@ -38,6 +38,7 @@ export const DEFAULT_MENU_DATA: Category[] = [
       {
         nombre: "Caldo de gallina",
         descripcion: "Caldo de gallina tradicional, concentrado y reponedor.",
+        imagen: "/caldo_de_gallina.jpg",
         precio: "S/. 12.00"
       }
     ]
@@ -49,26 +50,31 @@ export const DEFAULT_MENU_DATA: Category[] = [
       {
         nombre: "Bistec",
         descripcion: "Jugoso bistec acompañado de arroz, papas fritas y ensalada fresca.",
+        imagen: "/bistec.png",
         precio: "S/. 12.00"
       },
       {
         nombre: "Pollo a la plancha",
         descripcion: "Pechuga de pollo tierna a la plancha, arroz y ensalada.",
+        imagen: "/pollo_a_la_plancha.jpg",
         precio: "S/. 12.00"
       },
       {
         nombre: "Chuleta",
         descripcion: "Chuleta de cerdo bien sazonada, arroz y papas fritas.",
+        imagen: "/chuleta.png",
         precio: "S/. 12.00"
       },
       {
         nombre: "Pollada",
         descripcion: "Pollada crocante con su clásica ensalada y papas doradas.",
+        imagen: "/pollada.jpg",
         precio: "S/. 20.00"
       },
       {
         nombre: "Lomo saltado",
         descripcion: "Clásico lomo saltado al wok con cebolla, tomate, papas fritas y arroz.",
+        imagen: "/lomo_saltado.jpg",
         precio: "S/. 12.00"
       }
     ]
@@ -80,6 +86,7 @@ export const DEFAULT_MENU_DATA: Category[] = [
       {
         nombre: "Hamburguesa artesanal",
         descripcion: "Hamburguesa casera premium, lechuga y tomate en pan brioche.",
+        imagen: "/hamburguesa_artesanal.jpg",
         precio: "S/. 8.00",
         adicionales: [
           { nombre: "Papas al hilo", precio: 6.00 }
@@ -88,6 +95,7 @@ export const DEFAULT_MENU_DATA: Category[] = [
       {
         nombre: "Chorizo artesanal",
         descripcion: "Chorizo de la casa a la parrilla con chimichurri.",
+        imagen: "/chorizo_artesanal.jpg",
         precio: "S/. 8.00",
         adicionales: [
           { nombre: "Papas al hilo", precio: 6.00 }
@@ -96,18 +104,21 @@ export const DEFAULT_MENU_DATA: Category[] = [
       {
         nombre: "Broster",
         descripcion: "Pollo broster crujiente, papas fritas y cremas.",
+        imagen: "/broster.jpg",
         precio: "S/. 10.00",
         opciones: ["Pecho", "Muslo"]
       },
       {
         nombre: "Patitas broster",
         descripcion: "Patitas de pollo sazonadas estilo broster con papas fritas.",
+        imagen: "/patitas_broster.jpg",
         precio: "S/. 5.00",
         acompanamiento: "Papas fritas"
       },
       {
         nombre: "Cuellito broster",
         descripcion: "Cuellito broster crujiente con papas fritas.",
+        imagen: "/cuellito_broster.jpg",
         precio: "S/. 5.00",
         acompanamiento: "Papas fritas"
       }

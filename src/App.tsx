@@ -13,11 +13,25 @@ const WHATSAPP_NUMBER = "51965273758"; // Reemplaza con tu número de WhatsApp
 const FACEBOOK_URL = ""; 
 const MAPS_URL = ""; 
 const LOGO_FOOTER_PATH = ""; 
-const BANNER_PATH = ""; 
+const BANNER_PATH = "/banner.jpg"; 
 const MARQUEE_TEXT = "🌿 MCT FOODS • FRESCO, NATURAL Y EXCLUSIVO • REALIZA TU PEDIDO POR WHATSAPP • ";
 // ==========================================
 
-const LOCAL_IMAGES: Record<string, string> = {};
+const LOCAL_IMAGES: Record<string, string> = {
+  "Caldo de gallina": "/caldo_de_gallina.jpg",
+  "Caldo de cordero": "/caldo_de_cordero.png",
+  "Caldo de cabeza": "/caldo_de_cabeza.png",
+  "Pollo a la plancha": "/pollo_a_la_plancha.jpg",
+  "Bistec": "/bistec.png",
+  "Chuleta": "/chuleta.png",
+  "Pollada": "/pollada.jpg",
+  "Lomo saltado": "/lomo_saltado.jpg",
+  "Broster": "/broster.jpg",
+  "Patitas broster": "/patitas_broster.jpg",
+  "Cuellito broster": "/cuellito_broster.jpg",
+  "Hamburguesa artesanal": "/hamburguesa_artesanal.jpg",
+  "Chorizo artesanal": "/chorizo_artesanal.jpg"
+};
 
 interface CartItem {
   nombre: string;
@@ -207,7 +221,8 @@ export default function App() {
             return {
               nombre: n,
               descripcion: "Caldo tradicional, concentrado y reponedor.",
-              precio: p
+              precio: p,
+              imagen: LOCAL_IMAGES[n] || null
             };
           });
 
@@ -545,12 +560,22 @@ export default function App() {
 
       {/* 3D realistic logo banner */}
       <div className="px-5 pt-4 pb-3">
-        <div className="relative w-full rounded-3xl overflow-hidden shadow-2xl aspect-[2/1] bg-gradient-to-br from-[#161618] to-[#0A0A0B] flex flex-col items-center justify-center text-center p-6 border border-[#C29A38]/20">
-          <div className="absolute inset-0 bg-[radial-gradient(#c29a38_1px,transparent_1px)] [background-size:16px_16px] opacity-10"></div>
-          <div className="relative z-10 flex flex-col items-center">
-            <Logo className="w-56 h-auto" />
+        {BANNER_PATH ? (
+          <div className="relative w-full rounded-3xl overflow-hidden shadow-2xl aspect-[2/1] border border-[#C29A38]/20">
+            <img 
+              src={BANNER_PATH} 
+              alt={RESTAURANTE_NAME}
+              className="w-full h-full object-cover"
+            />
           </div>
-        </div>
+        ) : (
+          <div className="relative w-full rounded-3xl overflow-hidden shadow-2xl aspect-[2/1] bg-gradient-to-br from-[#161618] to-[#0A0A0B] flex flex-col items-center justify-center text-center p-6 border border-[#C29A38]/20">
+            <div className="absolute inset-0 bg-[radial-gradient(#c29a38_1px,transparent_1px)] [background-size:16px_16px] opacity-10"></div>
+            <div className="relative z-10 flex flex-col items-center">
+              <Logo className="w-56 h-auto" />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Category selector */}
